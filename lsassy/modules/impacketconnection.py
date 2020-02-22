@@ -16,13 +16,15 @@ from lsassy.modules.logger import Logger
 
 class ImpacketConnection:
     class Options:
-        def __init__(self, hostname="", domain_name="", username="", password="", lmhash="", nthash="", timeout=5):
+        def __init__(self, hostname="", domain_name="", username="", password="", lmhash="", nthash="", kerberos=False, dc_ip="", timeout=5):
             self.hostname = hostname
             self.domain_name = domain_name
             self.username = username
             self.password = password
             self.lmhash = lmhash
             self.nthash = nthash
+            self.kerberos = kerberos
+            self.dc_ip = dc_ip
             self.timeout = timeout
 
     def __init__(self, options: Options):
@@ -33,6 +35,8 @@ class ImpacketConnection:
         self.password = options.password
         self.lmhash = options.lmhash
         self.nthash = options.nthash
+        self.kerberos = options.kerberos
+        self.dc_ip = options.dc_ip
         self.timeout = options.timeout
         self._log = Logger(self.hostname)
         self._conn = None
@@ -59,7 +63,10 @@ class ImpacketConnection:
         username = self.username.split("@")[0]
         self._log.debug("Authenticating against {}".format(ip))
         try:
-            self._conn.login(username, self.password, domain=self.domain_name, lmhash=self.lmhash, nthash=self.nthash, ntlmFallback=True)
+            if self.kerberos is False:
+                self._conn.login(username, self.password, domain=self.domain_name, lmhash=self.lmhash, nthash=self.nthash, ntlmFallback=True)
+            else:
+                self._conn.kerberosLogin(username, self.password, domain=self.domain_name, lmhash=self.lmhash, nthash=self.nthash, kdcHost=self.dc_ip)
         except SessionError as e:
             self._log.debug("Provided credentials : {}\\{}:{}".format(self.domain_name, username, self.password))
             return RetCode(ERROR_LOGIN_FAILURE, e)

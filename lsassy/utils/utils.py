@@ -46,6 +46,11 @@ def get_args():
     group_auth.add_argument('-p', '--password', action='store', help='Plaintext password')
     group_auth.add_argument('-d', '--domain', default="", action='store', help='Domain name')
     group_auth.add_argument('-H', '--hashes', action='store', help='[LM:]NT hash')
+    group_auth.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                            '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                            'ones specified in the command line')
+    group_auth.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
+                                                                            'ommited it use the domain part (FQDN) specified in the target parameter')
 
     group_out = parser.add_argument_group('output')
     group_out.add_argument('-o', '--outfile', action='store', help='Output credentials to file')
