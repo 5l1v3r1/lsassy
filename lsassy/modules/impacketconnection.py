@@ -49,12 +49,16 @@ class ImpacketConnection:
             if ip != self.hostname:
                 self._log.debug("Host {} resolved to {}".format(self.hostname, ip))
         except gaierror as e:
-            return RetCode(ERROR_DNS_ERROR, e)
+            self._log.error(ERROR_DNS_ERROR)
+            raise
+        except Exception:
+            raise
 
         try:
             self._conn = SMBConnection(ip, ip, timeout=self.timeout)
-        except Exception as e:
-            return RetCode(ERROR_CONNECTION_ERROR, e)
+        except Exception:
+            self._log.error(ERROR_CONNECTION_ERROR)
+            raise
 
         username = self.username.split("@")[0]
         self._log.debug("Authenticating against {}".format(ip))
@@ -62,10 +66,11 @@ class ImpacketConnection:
             self._conn.login(username, self.password, domain=self.domain_name, lmhash=self.lmhash, nthash=self.nthash, ntlmFallback=True)
         except SessionError as e:
             self._log.debug("Provided credentials : {}\\{}:{}".format(self.domain_name, username, self.password))
-            return RetCode(ERROR_LOGIN_FAILURE, e)
-        except Exception as e:
-            return RetCode(ERROR_UNDEFINED, e)
-        return RetCode(ERROR_SUCCESS)
+            self._log.error(ERROR_LOGIN_FAILURE)
+            raise
+        except Exception:
+            raise
+        return ERROR_SUCCESS
 
     def connectTree(self, share_name):
         return self._conn.connectTree(share_name)
@@ -80,38 +85,38 @@ class ImpacketConnection:
                 fid = self._conn.openFile(tid, fpath, desiredAccess=FILE_READ_DATA)
                 self._log.debug("File {} opened".format(fpath))
                 return fid
-            except Exception as e:
+            except Exception:
                 if str(e).find('STATUS_SHARING_VIOLATION') >= 0 or str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
                     # Output not finished, let's wait
                     if time.time() - start > timeout:
-                        raise(Exception(e))
+                        raise
                     time.sleep(1)
                 else:
-                    raise Exception(e)
+                    raise
 
     def queryInfo(self, tid, fid):
         while True:
             try:
                 info = self._conn.queryInfo(tid, fid)
                 return info
-            except Exception as e:
+            except Exception:
                 if str(e).find('STATUS_SHARING_VIOLATION') >= 0:
                     # Output not finished, let's wait
                     time.sleep(2)
                 else:
-                    raise Exception(e)
+                    raise
 
     def getFile(self, share_name, path_name, callback):
         while True:
             try:
                 self._conn.getFile(share_name, path_name, callback)
                 break
-            except Exception as e:
+            except Exception:
                 if str(e).find('STATUS_SHARING_VIOLATION') >= 0:
                     # Output not finished, let's wait
                     time.sleep(2)
                 else:
-                    raise Exception(e)
+                    raise
 
     def deleteFile(self, share_name, path_name):
         while True:
@@ -119,18 +124,19 @@ class ImpacketConnection:
                 self._conn.deleteFile(share_name, path_name)
                 self._log.debug("File {} deleted".format(path_name))
                 break
-            except Exception as e:
+            except Exception:
                 if str(e).find('STATUS_SHARING_VIOLATION') >= 0:
                     time.sleep(2)
                 else:
-                    raise Exception(e)
+                    raise
 
     def putFile(self, share_name, path_name, callback):
         try:
             self._conn.putFile(share_name, path_name, callback)
             self._log.debug("File {} uploaded".format(path_name))
-        except Exception as e:
-            raise Exception("An error occured while uploading %s on %s share : %s" % (path_name, share_name, e))
+        except Exception:
+            self._log.error("An error occurred while uploading %s on %s share : %s" % (path_name, share_name, e))
+            raise
 
     def readFile(self, tid, fid, offset, size):
         return self._conn.readFile(tid, fid, offset, size, singleCall=False)
@@ -144,9 +150,9 @@ class ImpacketConnection:
     def isadmin(self):
         try:
             self.connectTree("C$")
-            return RetCode(ERROR_SUCCESS)
-        except Exception as e:
-            return RetCode(ERROR_ACCESS_DENIED, e)
+            return ERROR_SUCCESS
+        except Exception:
+            return ERROR_ACCESS_DENIED
 
     def close(self):
         if self._conn is not None:
@@ -156,6 +162,7 @@ class ImpacketConnection:
     def clean(self):
         try:
             self.close()
-            return RetCode(ERROR_SUCCESS)
-        except Exception as e:
-            return RetCode(ERROR_CONNECTION_CLEANING, e)
+            return ERROR_SUCCESS
+        except Exception:
+            self._log.error(ERROR_CONNECTION_CLEANING)
+            raise

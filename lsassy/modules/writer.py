@@ -72,7 +72,8 @@ class Writer:
         elif self._format == "pretty":
             if len(self._credentials) == 0:
                 self._log.warn('No credentials found')
-                return RetCode(ERROR_NO_CREDENTIAL_FOUND)
+                self._log.error(ERROR_NO_CREDENTIAL_FOUND)
+                raise
 
             max_size = max(len(c[1]) + len(c[2]) for c in self._credentials)
             credentials = []
@@ -96,14 +97,17 @@ class Writer:
         elif self._format == "none":
             pass
         else:
-            return RetCode(ERROR_OUTPUT_FORMAT_INVALID, Exception("Output format {} is not valid".format(self._format)))
-
-        return RetCode(ERROR_SUCCESS)
+            self._log.debug("Output format '{}' is not supported".format(self._format))
+            self._log.error(ERROR_OUTPUT_FORMAT_INVALID)
+            raise
+        return ERROR_SUCCESS
 
     def write_file(self):
         path = Path(self._file).parent
         if not os.path.isdir(path):
-            return RetCode(ERROR_OUTPUT_DIR_NOT_EXIST, Exception("Directory {} does not exist".format(path)))
+            self._log.debug("Directory {} does not exist".format(path))
+            self._log.error(ERROR_OUTPUT_DIR_NOT_EXIST)
+            raise
 
         with open(self._file, 'a+') as f:
             credentials = []
@@ -123,4 +127,4 @@ class Writer:
                             (lmhash if lmhash is not None else "") + ":" + nthash if nthash is not None else "" if lmhash or nthash else ""
                         )
                     )
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS

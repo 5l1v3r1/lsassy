@@ -6,6 +6,8 @@
 
 import sys
 
+from lsassy.utils.defines import RetCode
+
 
 class Logger:
     class Options:
@@ -21,36 +23,50 @@ class Logger:
         self._quiet = options.quiet
 
     def info(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         if not self._quiet:
             if self._verbosity >= 1:
                 msg = "\n    ".join(msg.split("\n"))
                 print("\033[1;34m[*]\033[0m [{}]{}{}".format(self._target, " "*self._align, msg))
 
     def debug(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         if not self._quiet:
             if self._verbosity >= 2:
                 msg = "\n    ".join(msg.split("\n"))
                 print("\033[1;37m[*]\033[0m [{}]{}{}".format(self._target, " "*self._align, msg))
 
     def warn(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         if not self._quiet:
             if self._verbosity >= 1:
                 msg = "\n    ".join(msg.split("\n"))
                 print("\033[1;33m[!]\033[0m [{}]{}{}".format(self._target, " "*self._align, msg))
 
     def error(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         if not self._quiet:
             msg = "\n    ".join(msg.split("\n"))
             print("\033[1;31m[X]\033[0m [{}]{}{}".format(self._target, " "*self._align, msg), file=sys.stderr)
 
     def success(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         if not self._quiet:
             msg = "\n    ".join(msg.split("\n"))
             print("\033[1;32m[+]\033[0m [{}]{}{}".format(self._target, " "*self._align, msg))
 
     def raw(self, msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         print("{}".format(msg), end='')
 
     @staticmethod
     def highlight(msg):
+        if isinstance(msg, RetCode):
+            msg = msg.error_msg
         return "\033[1;33m{}\033[0m".format(msg)

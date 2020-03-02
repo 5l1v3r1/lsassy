@@ -48,12 +48,12 @@ class Parser:
                             and not username.endswith('$')
                             and not username == ''):
                         self._credentials.append((ssp, domain, username, password, LMHash, NThash))
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS
 
     def get_credentials(self):
         return self._credentials
 
     def clean(self):
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS
 
 

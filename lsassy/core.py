@@ -45,61 +45,73 @@ class Lsassy:
     def connect(self, options: ImpacketConnection.Options):
         self._conn = ImpacketConnection(options)
         self._conn.set_logger(self._log)
-        login_result = self._conn.login()
-        if not login_result.success():
-            return login_result
+
+        try:
+            self._conn.login()
+        except Exception:
+            self._log.error("An error occurred while login")
+            raise
 
         self._log.info("Authenticated")
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS
 
     def dump_lsass(self, options=Dumper.Options()):
-        is_admin = self._conn.isadmin()
-        if not is_admin.success():
+        if not self._conn.isadmin():
             self._conn.close()
-            return is_admin
+            return False
 
         self._dumper = Dumper(self._conn, options)
-        dump_result = self._dumper.dump()
-        if not dump_result.success():
-            return dump_result
+        try:
+            self._dumper.dump()
+        except Exception:
+            self._log.error("An error occurred while dumping lsass")
+            raise
+
         self._dumpfile = self._dumper.getfile()
 
-        self._log.info("Process lsass.exe has been dumped")
-        return RetCode(ERROR_SUCCESS)
+        self._log.success("Process lsass.exe has been dumped")
+        return ERROR_SUCCESS
 
     def parse_lsass(self, options=Dumper.Options()):
         self._parser = Parser(self._dumpfile, options)
-        parse_result = self._parser.parse()
-        if not parse_result.success():
-            return parse_result
+        try:
+            self._parser.parse()
+        except Exception:
+            self._log.error("An error occurred while parsing lsass dump")
+            raise
 
         self._credentials = self._parser.get_credentials()
-        self._log.info("Process lsass.exe has been parsed")
-        return RetCode(ERROR_SUCCESS)
+        self._log.success("Process lsass.exe has been parsed")
+        return ERROR_SUCCESS
 
     def write_credentials(self, options=Writer.Options()):
         self._writer = Writer(self._target, self._credentials, self._log, options)
-        write_result = self._writer.write()
-        if not write_result.success():
-            return write_result
+        try:
+            self._writer.write()
+        except Exception:
+            self._log.error("An error occurred while writing credentials")
+            raise
 
-        return RetCode(ERROR_SUCCESS)
+        return ERROR_SUCCESS
 
     def clean(self):
         if self._parser:
-            r = self._parser.clean()
-            if not r.success():
-                lsassy_warn(self._log, r)
+            try:
+                self._parser.clean()
+            except Exception:
+                self._log.warn("An error occurred while cleaning parser")
 
         if self._dumper:
-            r = self._dumper.clean()
-            if not r.success():
-                lsassy_warn(self._log, r)
+            try:
+                self._dumper.clean()
+            except Exception:
+                self._log.warn("An error occurred while cleaning dumper")
 
         if self._conn:
-            r = self._conn.clean()
-            if not r.success():
-                lsassy_warn(self._log, r)
+            try:
+                self._conn.clean()
+            except Exception:
+                self._log.warn("An error occurred while cleaning connection")
 
         self._log.info("Cleaning complete")
 
@@ -113,47 +125,36 @@ class Lsassy:
                 "success": True,
                 "credentials": self._credentials
             }
-        if not return_code.success():
+        if not return_code:
             ret["success"] = False
             ret["error_code"] = return_code.error_code
             ret["error_msg"] = return_code.error_msg
-            ret["error_exception"] = return_code.error_exception
 
         return ret
 
     def run(self):
-        return_code = ERROR_UNDEFINED
         try:
-            return_code = self._run()
-        except KeyboardInterrupt as e:
+            self._run()
+        except KeyboardInterrupt:
             print("")
             self._log.warn("Quitting gracefully...")
-            return_code = RetCode(ERROR_USER_INTERRUPTION)
-        except Exception as e:
-            return_code = RetCode(ERROR_UNDEFINED, e)
-        finally:
             self.clean()
-            lsassy_exit(self._log, return_code)
-            return return_code
+            return ERROR_USER_INTERRUPTION
+        except Exception:
+            self.clean()
+            raise
+        self.clean()
+        return ERROR_SUCCESS
 
     def _run(self):
         """
         Extract hashes from arguments
         """
-
-        r = self.connect(self.conn_options)
-        if not r.success():
-            return r
-        r = self.dump_lsass(self.dump_options)
-        if not r.success():
-            return r
-        r = self.parse_lsass(self.parse_options)
-        if not r.success():
-            return r
-        r = self.write_credentials(self.write_options)
-        if not r.success():
-            return r
-        return RetCode(ERROR_SUCCESS)
+        self.connect(self.conn_options)
+        self.dump_lsass(self.dump_options)
+        self.parse_lsass(self.parse_options)
+        self.write_credentials(self.write_options)
+        return ERROR_SUCCESS
 
 
 class CLI:
@@ -211,14 +212,21 @@ class CLI:
             self.parse_options,
             self.write_options
         )
-        return self.lsassy.run()
+        try:
+            self.lsassy.run()
+        except:
+            if args.v == 2:
+                raise
+            else:
+                return ERROR_UNDEFINED
+        return ERROR_SUCCESS
 
 
 def run():
     targets = get_targets(get_args().target)
 
     if len(targets) == 1:
-        return CLI(targets[0]).run().error_code
+        return CLI(targets[0]).run()
 
     jobs = [Process(target=CLI(target).run) for target in targets]
     try:

@@ -192,7 +192,7 @@ class CMEModule:
         except ServiceUnavailable as e:
             context.log.error("Neo4J does not seem to be available on {}. See --options".format(uri))
             sys.exit()
-        except Exception as e:
+        except Exception:
             context.log.error("Unexpected error with Neo4J")
             context.log.debug("Error : ".format(str(e)))
             sys.exit()
@@ -226,7 +226,7 @@ class CMEModule:
         except ServiceUnavailable as e:
             context.log.error("Neo4J does not seem to be available on {}. See --options".format(uri))
             return False
-        except Exception as e:
+        except Exception:
             context.log.error("Unexpected error with Neo4J")
             context.log.debug("Error : ".format(str(e)))
             return False

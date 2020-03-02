@@ -34,20 +34,23 @@ class ImpacketFile:
     def open(self, path, timeout=3):
         try:
             share_name, fpath = self._parse_path(path)
-        except Exception as e:
-            return RetCode(ERROR_PATH_FILE, e)
+        except Exception:
+            self._log.error(ERROR_PATH_FILE)
+            raise
 
         self._fpath = fpath
         try:
             self._tid = self._conn.connectTree(share_name)
-        except Exception as e:
+        except Exception:
             self.clean()
-            return RetCode(ERROR_SHARE, e)
+            self._log.error(ERROR_SHARE)
+            raise
         try:
             self._fid = self._conn.openFile(self._tid, self._fpath, timeout=timeout)
-        except Exception as e:
+        except Exception:
             self.clean()
-            return RetCode(ERROR_FILE, e)
+            self._log.error(ERROR_FILE)
+            raise
         self._fileInfo = self._conn.queryInfo(self._tid, self._fid)
         self._endOfFile = self._fileInfo.fields["EndOfFile"]
         return self
@@ -108,7 +111,8 @@ class ImpacketFile:
     def clean(self):
         try:
             self.close()
-        except Exception as e:
+        except Exception:
+            # We try to close, and if we can't it means it's not opened. Can't say it before calling it some situations
             pass
 
     @staticmethod
